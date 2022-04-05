@@ -1,0 +1,5 @@
+GDAL==3.4.2
+loguru==0.6.0
+numpy==1.21.4
+pathos==0.2.8
+python-decouple==3.6

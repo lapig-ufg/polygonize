@@ -4,14 +4,14 @@ from osgeo import gdal, ogr, osr
 import numpy
 import time
 import unicodedata
-from joblib import Parallel, delayed
 from pathos.multiprocessing import ProcessingPool
 from loguru import logger
+from decouple import config
 
 
 # Variaveis globais
 #  Database connections
-PG_CONNECTION = 'PG: host=172.18.0.72 port=5432 dbname=lapig user=postgres password=password'
+PG_CONNECTION = config('PG_CONNECTION')
 BD_TABLE = 'pasture_quality_col6_S100_temp'
 YEAR = sys.argv[3]
 
