@@ -12,7 +12,7 @@ from decouple import config
 # Variaveis globais
 #  Database connections
 PG_CONNECTION = config('PG_CONNECTION')
-BD_TABLE = 'pasture_quality_col6_S100_temp'
+BD_TABLE = 'pasture_quality_col6_temp'
 YEAR = sys.argv[3]
 
 logger.add(
