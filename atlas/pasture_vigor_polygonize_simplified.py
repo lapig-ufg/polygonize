@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-import unicodedata
 import warnings
 from glob import glob
 
@@ -11,29 +10,20 @@ from osgeo import gdal, ogr, osr
 from pathos.multiprocessing import ProcessingPool
 
 from atlas.config import logger
-from atlas.functions import set_status, Status
+from atlas.functions import normalize_field_value
 
 warnings.filterwarnings('ignore')
 
 # Variaveis globais
 #  Database connections
 PG_CONNECTION = config('PG_CONNECTION')
-BD_TABLE = 'pasture_col8_s100'
+BD_TABLE = 'pasture_quality_col8_S100'
 
 
 def create_connection():
     DRIVER = ogr.GetDriverByName('PostgreSQL')
     DATA_SOURCE = DRIVER.CreateDataSource(PG_CONNECTION)
     return DATA_SOURCE
-
-
-def normalize_field_value(text):
-    text = (
-        unicodedata.normalize('NFD', text)
-        .encode('ascii', 'ignore')
-        .decode('utf-8')
-    )
-    return str(text).upper()
 
 
 def create_layer(vector_layer):
@@ -81,12 +71,12 @@ def polygonize(
     out_lyr,
     fid,
     year,
-    _doc
 ):
     timestart = time.time()
     memory_driver = ogr.GetDriverByName('Memory')
     memory_ds = memory_driver.CreateDataSource('tempDS')
 
+    # name = input_feature.GetField(str(sys.argv[4]))
     input_geometry = input_feature.GetGeometryRef()
 
     temp_vector_layer = memory_ds.CreateLayer(
@@ -131,8 +121,6 @@ def polygonize(
             pointsY.append(lat)
 
     else:
-        _doc['mensagem'] = 'Geometry needs to be either Polygon or Multipolygon'
-        set_status(_doc, Status.ERROR, BD_TABLE)
         logger.error(
             f'ERROR: Geometry needs to be either Polygon or Multipolygon'
         )
@@ -150,6 +138,7 @@ def polygonize(
     xcount = int((xmax - xmin) / pixelWidth)
     ycount = int((ymax - ymin) / pixelWidth)
 
+    # temp_raster_layer = gdal.GetDriverByName('GTiff').Create('teste.tif', xcount, ycount, 1, gdal.GDT_Byte)
     temp_raster_layer = gdal.GetDriverByName('MEM').Create(
         '', xcount, ycount, gdal.GDT_Byte
     )
@@ -164,17 +153,13 @@ def polygonize(
 
     input_raster_band = raster.GetRasterBand(1)
     temp_raster_band = temp_raster_layer.GetRasterBand(1)
-    try:
-        input_raster_data = input_raster_band.ReadAsArray(
-            xoff, yoff, xcount, ycount
-        ).astype(numpy.byte)
-        temp_raster_data = temp_raster_band.ReadAsArray(
-            0, 0, xcount, ycount
-        ).astype(numpy.byte)
-    except Exception as e:
-        _doc['mensagem'] = f'FEATURE: {fid} | msg: {e}'
-        set_status(_doc, Status.ERROR, BD_TABLE)
-        logger.error(f'FEATURE: {fid} | msg: {e}')
+
+    input_raster_data = input_raster_band.ReadAsArray(
+        xoff, yoff, xcount, ycount
+    ).astype(numpy.byte)
+    temp_raster_data = temp_raster_band.ReadAsArray(
+        0, 0, xcount, ycount
+    ).astype(numpy.byte)
 
     input_raster_data[input_raster_data == 255] = 0
     temp_raster_data = input_raster_data * temp_raster_data
@@ -201,80 +186,114 @@ def polygonize(
     albers.ImportFromProj4(
         '+proj=aea +lat_1=-2 +lat_2=-22 +lat_0=-12 +lon_0=-54 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs'
     )
-    multi = ogr.Geometry(ogr.wkbMultiPolygon)
-    area = 0.0
 
     osrTransform = osr.CoordinateTransformation(raster_srs, albers)
 
+    geometryClasses = {}
+
     for feat in dst_layer:
+
+        pixel_value = feat.GetField('dn')
+
+        if pixel_value not in geometryClasses:
+            geometryClasses[pixel_value] = {
+                'geometry': ogr.Geometry(ogr.wkbMultiPolygon),
+                'area': 0.0,
+                'count': 0,
+            }
+
+        geometryClasses[pixel_value]['count'] += 1
+
         if feat.geometry():
-            multi.AddGeometry(feat.geometry())
+            geometryClasses[pixel_value]['geometry'].AddGeometry(
+                feat.geometry()
+            )
             feat.geometry().Transform(osrTransform)
 
-            area = area + feat.geometry().GetArea()
-
-    geoTrans_albers = osr.CoordinateTransformation(input_feature_srs, albers)
-
-    geoTrans_inv_albers = osr.CoordinateTransformation(
-        albers, input_feature_srs
-    )
-
-    multi.Transform(geoTrans_albers)
-
-    simplifiedTopo = multi.SimplifyPreserveTopology(100)
-
-    simplifiedTopo.Transform(geoTrans_inv_albers)
-
-    if fid != 2:
-        if simplifiedTopo.IsValid() == False:
-            simplifiedTopo = simplifiedTopo.MakeValid()
-            simplifiedTopo = simplifiedTopo.Buffer(0)
-
-    out_feat = ogr.Feature(defn)
-
-    if simplifiedTopo.GetGeometryType() == ogr.wkbPolygon:
-        out_feat.SetGeometryDirectly(ogr.ForceToMultiPolygon(simplifiedTopo))
-    else:
-        out_feat.SetGeometry(simplifiedTopo)
-
-    out_feat.SetField('area_ha', area / 10000)
-    out_feat.SetField('year', year)
-
-    # import ipdb; ipdb.set_trace()
-
-    for field_name in field_names:
-        if field_name == ['BIOMA']:
-            value = normalize_field_value(
-                str(input_feature.GetField(field_name))
+            geometryClasses[pixel_value]['area'] = (
+                geometryClasses[pixel_value]['area']
+                + feat.geometry().GetArea()
             )
-            out_feat.SetField(field_name, value)
-        else:
-            out_feat.SetField(
-                field_name, str(input_feature.GetField(field_name))
-            )
+    listClass = []
+    for featClass in geometryClasses.keys():
+        listClass.append(featClass)
+        geometry = geometryClasses[featClass]['geometry']
+        area = geometryClasses[featClass]['area']
 
-    try:
-        out_lyr.CreateFeature(out_feat)
-        _doc['mensagem'] = f'{fid} save'
-        set_status(_doc, Status.COMPLETE, BD_TABLE)
-        logger.success(f'{fid} save')
-    except Exception as e:
-        _doc['mensagem'] = f'ERROR_CREATE_FEATURE: {fid} | feature class {out_feat:>10} | msg: {e}'
-        set_status(_doc, Status.ERROR, BD_TABLE)
-        logger.error(
-            f'ERROR_CREATE_FEATURE: {fid} | feature class {out_feat:>10} | msg: {e}'
+        geoTrans_albers = osr.CoordinateTransformation(
+            input_feature_srs, albers
         )
+
+        geoTrans_inv_albers = osr.CoordinateTransformation(
+            albers, input_feature_srs
+        )
+
+        geometry.Transform(geoTrans_albers)
+
+        simplifiedTopo = geometry.SimplifyPreserveTopology(100)
+        simplifiedTopo.Transform(geoTrans_inv_albers)
+
+        # import ipdb; ipdb.set_trace()
+
+        if fid != 2:
+
+            if simplifiedTopo.IsValid() == False:
+                simplifiedTopo = simplifiedTopo.MakeValid()
+                simplifiedTopo = simplifiedTopo.Buffer(0)
+
+        out_feat = ogr.Feature(defn)
+
+        if simplifiedTopo.GetGeometryType() == ogr.wkbMultiPolygon:
+            out_feat.SetGeometry(simplifiedTopo)
+        else:
+            out_feat.SetGeometryDirectly(
+                ogr.ForceToMultiPolygon(simplifiedTopo)
+            )
+
+        out_feat.SetField('index', fid)
+        out_feat.SetField('area_ha', area / 10000)
+        out_feat.SetField('classe', featClass)
+        out_feat.SetField('year', year)
+
+        for field_name in field_names:
+            if field_name == ['BIOMA']:
+                value = normalize_field_value(
+                    str(input_feature.GetField(field_name))
+                )
+                out_feat.SetField(field_name, value)
+            else:
+                out_feat.SetField(
+                    field_name, str(input_feature.GetField(field_name))
+                )
+
+        try:
+            out_lyr.CreateFeature(out_feat)
+        except Exception as e:
+            logger.error(
+                f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10} | msg: {e}'
+            )
 
     timeend = time.time() - timestart
     logger.info(
-        f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Time Execution: {timeend:.2f}"
+        f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Classes: {listClass} | Time Execution: {timeend:.2f}"
     )
 
 
 def feature_loop(args):
 
-    input_zone_polygon, input_value_raster_path, prefix, sufix = args
+    input_zone_polygon, input_value_raster_path = args
 
+    logger.add(
+        f'logs/{BD_TABLE}.log',
+        format='[{time} | {level:<6}] {module}.{function}:{line} {message}',
+        rotation='500 MB',
+    )
+    logger.add(
+        f'logs/{BD_TABLE}_error.log',
+        format='[{time} | {level:<6}] {module}.{function}:{line} {message}',
+        level='WARNING',
+        rotation='500 MB',
+    )
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
 
@@ -295,9 +314,6 @@ def feature_loop(args):
     dataStore.Destroy()
     del layerLocal
 
-    def get_year(s, pre, suf):
-        return int(s.replace(pre, '').replace(suf, ''))
-
     def parallelProcess(args):
         SHP = ogr.Open(input_zone_polygon)
         VECTOR_LAYER = SHP.GetLayer()
@@ -310,12 +326,21 @@ def feature_loop(args):
         _doc = {
             '_id': f'{input_value_raster};{fid};{year};{field_names}',
             'args': args,
-            'status': 'pending',
+            'status': 'Pending',
         }
-        try:
 
+        logger.debug(
+            f"""
+                input_value_raster: {input_value_raster}, 
+                fid: {fid} 
+                year: {year}
+                field_names: {field_names}"""
+        )
+        try:
+            # logger.info(f"raster: {input_value_raster} | fid: {fid} | year: {year} | field_names: {field_names}")
             input_feature = VECTOR_LAYER.GetFeature(fid)
             input_feature_srs = VECTOR_LAYER.GetSpatialRef()
+            # logger.info(f"Runing Parallel: {fid} | CD_GEOCMU: {input_feature.GetField('CD_GEOCMU'):>10} | YEAR: {year}")
             polygonize(
                 input_feature,
                 input_feature_srs,
@@ -324,11 +349,9 @@ def feature_loop(args):
                 LAYER,
                 fid,
                 year,
-                _doc
+                _doc,
             )
         except Exception as e:
-            _doc['mensagem'] = f'ERROR: FID: {fid} | CD_GEOCMU: {input_feature.GetField("CD_GEOCMU")} | YEAR: {year} | msg: {e}.'
-            set_status(_doc, Status.ERROR, BD_TABLE)
             logger.exception(
                 f"ERROR -> FID: {fid} | CD_GEOCMU: {input_feature.GetField('CD_GEOCMU')} | YEAR: {year} | msg: {e}."
             )
@@ -338,16 +361,14 @@ def feature_loop(args):
             del dataStore
             del LAYER
 
-    # parallelProcess((input_value_raster, 986, year, field_names))
-    num_cores = os.cpu_count() - 2
-
-
+    # # parallelProcess((input_value_raster, 5, year, field_names))
+    num_cores = int((os.cpu_count() * 2) - 5)
 
     with ProcessingPool(nodes=int(num_cores)) as workers:
         result = workers.map(
             parallelProcess,
             [
-                (file, fid, get_year(file, prefix, sufix), field_names)
+                (file, fid, get_year(file), field_names)
                 for fid in fids
                 for file in glob(input_value_raster_path)
             ],
@@ -357,4 +378,5 @@ def feature_loop(args):
 
 
 if __name__ == '__main__':
-    feature_loop(sys.argv[1], sys.argv[2], sys.argv[3])
+    args = (sys.argv[1], sys.argv[2])
+    feature_loop(args)
