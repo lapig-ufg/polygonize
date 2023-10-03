@@ -1,27 +1,31 @@
 import os
 import sys
-from osgeo import gdal, ogr, osr
-import numpy
 import time
 import unicodedata
-from pathos.multiprocessing import ProcessingPool
-from loguru import logger
-from decouple import config
+import warnings
+from glob import glob
 
+import numpy
+from decouple import config
+from osgeo import gdal, ogr, osr
+from pathos.multiprocessing import ProcessingPool
+
+from atlas.config import logger
+
+warnings.filterwarnings('ignore')
 
 # Variaveis globais
 #  Database connections
 PG_CONNECTION = config('PG_CONNECTION')
-BD_TABLE = 'pasture_col6_temp'
-YEAR = sys.argv[3]
+BD_TABLE = 'pasture_col8'
 
 logger.add(
-    f'logs/{BD_TABLE}_{YEAR}.log',
+    f'logs/{BD_TABLE}.log',
     format='[{time} | {level:<6}] {module}.{function}:{line} {message}',
     rotation='500 MB',
 )
 logger.add(
-    f'logs/{BD_TABLE}_{YEAR}_error.log',
+    f'logs/{BD_TABLE}_error.log',
     format='[{time} | {level:<6}] {module}.{function}:{line} {message}',
     level='WARNING',
     rotation='500 MB',
@@ -198,7 +202,9 @@ def polygonize(
     defn = out_lyr.GetLayerDefn()
 
     albers = osr.SpatialReference()
-    albers.ImportFromEPSG(4674)
+    albers.ImportFromProj4(
+        '+proj=aea +lat_1=-2 +lat_2=-22 +lat_0=-12 +lon_0=-54 +x_0=0 +y_0=0 +ellps=aust_SA +units=m +no_defs'
+    )
     multi = ogr.Geometry(ogr.wkbMultiPolygon)
     area = 0.0
 
@@ -221,7 +227,7 @@ def polygonize(
         out_feat.SetGeometryDirectly(ogr.ForceToMultiPolygon(multi))
     else:
         out_feat.SetGeometry(multi)
-    
+
     out_feat.SetField('index', fid)
     out_feat.SetField('area_ha', area / 10000)
     out_feat.SetField('year', year)
@@ -229,18 +235,15 @@ def polygonize(
     # import ipdb; ipdb.set_trace()
 
     for field_name in field_names:
-        if field_name in ['MUNICIPIO', 'ESTADO']:
-            pass
+        if field_name == ['BIOMA']:
+            value = normalize_field_value(
+                str(input_feature.GetField(field_name))
+            )
+            out_feat.SetField(field_name, value)
         else:
-            if field_name == 'BIOMA':
-                value = normalize_field_value(
-                    str(input_feature.GetField(field_name))
-                )
-                out_feat.SetField(field_name, value)
-            else:
-                out_feat.SetField(
-                    field_name, str(input_feature.GetField(field_name))
-                )
+            out_feat.SetField(
+                field_name, str(input_feature.GetField(field_name))
+            )
 
     try:
         out_lyr.CreateFeature(out_feat)
@@ -255,7 +258,9 @@ def polygonize(
     )
 
 
-def feature_loop(input_zone_polygon, input_value_raster, year):
+def feature_loop(args):
+    input_zone_polygon, input_value_raster_path, prefix, sufix = args
+
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
 
@@ -275,6 +280,11 @@ def feature_loop(input_zone_polygon, input_value_raster, year):
     del VECTOR_LAYER
     dataStore.Destroy()
     del layerLocal
+
+    def get_year(s, pre, suf):
+        # pre = '../Pasture_Quality_Col7/pasture_cvp_modis_col7_'
+        # suf = '_Brazil_atlas_sirgas.tif'
+        return int(s.replace(pre, '').replace(suf, ''))
 
     def parallelProcess(args):
         SHP = ogr.Open(input_zone_polygon)
@@ -306,17 +316,22 @@ def feature_loop(input_zone_polygon, input_value_raster, year):
             del dataStore
             del LAYER
 
-    # parallelProcess((input_value_raster, 5, year, field_names))
+    # parallelProcess((input_value_raster, 986, year, field_names))
     num_cores = os.cpu_count() - 2
 
     with ProcessingPool(nodes=int(num_cores)) as workers:
         result = workers.map(
             parallelProcess,
-            [(input_value_raster, fid, year, field_names) for fid in fids],
+            [
+                (file, fid, get_year(file, prefix, sufix), field_names)
+                for fid in fids
+                for file in glob(input_value_raster_path)
+            ],
         )
 
     logger.info(f'Finished! ┗(＾0＾) ┓')
 
 
 if __name__ == '__main__':
-    feature_loop(sys.argv[1], sys.argv[2], sys.argv[3])
+    args = (sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4])
+    feature_loop(args)
