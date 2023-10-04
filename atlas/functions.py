@@ -38,7 +38,7 @@ def get_complete(_doc:dict, database:str)->bool:
         collection = db[database]
         r = collection.find_one({
             '_id': _doc['_id'],
-            'status': Status.COMPLETE
+            'status': Status.COMPLETE.value
         })
         if r:
             return True
