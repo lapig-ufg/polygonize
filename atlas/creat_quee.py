@@ -7,9 +7,9 @@ from atlas.config import logger, MONGO
 from atlas.functions import get_year
 
 def creat_doc_loop(args):
-    input_value_raster, fid, year, field_names = args
+    input_value_raster,input_zone_polygon, fid, year, field_names = args
     return {
-            '_id': f'{input_value_raster};{fid};{year};{field_names}',
+            '_id': f'{input_value_raster};{input_zone_polygon};{fid};{year};{field_names}',
             'args': args,
             'status':'Pending',
             
@@ -31,7 +31,7 @@ def creat_feature_loop(args, database):
     with MongoClient(MONGO) as client:
         db = client["polygonize"]
         collection = db[database]
-        _docs = [creat_doc_loop((file, fid, get_year(file,prefix,sufix), field_names)) for fid in fids for file in glob(input_value_raster_path)]
+        _docs = [creat_doc_loop((input_zone_polygon,file, fid, get_year(file,prefix,sufix), field_names)) for fid in fids for file in glob(input_value_raster_path)]
         try:
             collection.insert_many(_docs)
             logger.info(f'Insert in database {database} with args {args}')

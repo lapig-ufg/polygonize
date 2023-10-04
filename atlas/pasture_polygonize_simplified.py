@@ -282,7 +282,7 @@ def polygonize(
 
 def feature_loop(_docs):
 
-    input_zone_polygon, input_value_raster_path, prefix, sufix = _docs[0]['args']
+    input_zone_polygon,input_zone_polygon, input_value_raster_path, prefix, sufix = _docs[0]['args']
 
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
@@ -306,14 +306,15 @@ def feature_loop(_docs):
     def parallelProcess(_doc):
         if get_complete(_doc, BD_TABLE):
             return True
-
+        input_value_raster,input_zone_polygon, fid, year, field_names = _doc['args']
+        
         SHP = ogr.Open(input_zone_polygon)
         VECTOR_LAYER = SHP.GetLayer()
 
         dataStore = create_connection()
         LAYER = dataStore.GetLayerByName(BD_TABLE)
 
-        input_value_raster, fid, year, field_names = _doc['args']
+        
         try:
 
             input_feature = VECTOR_LAYER.GetFeature(fid)
