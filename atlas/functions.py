@@ -27,13 +27,13 @@ def get_year(s, pre, suf):
 
 def set_status(_doc:dict, status:Status, database:str)->None:
     _doc['status'] = status.value
-    with MongoClient() as client:
+    with MongoClient(MONGO) as client:
         db = client["polygonize"]
         collection = db[database]
         collection.update_one({'_id':_doc['_id']},{'$set':_doc})
 
 def get_complete(_doc:dict, database:str)->bool:
-    with MongoClient() as client:
+    with MongoClient(MONGO) as client:
         db = client["polygonize"]
         collection = db[database]
         r = collection.find_one({
