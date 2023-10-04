@@ -1,6 +1,5 @@
 from atlas.creat_quee import creat_feature_loop
-from atlas.pasture_polygonize_simplified import \
-    feature_loop as feature_loop_s100  # prepara para muilt core
+from atlas.pasture_polygonize_simplified import feature_loop as feature_loop_s100
 
 args = (
     '../Shapefile/regions_v26052023.shp',
