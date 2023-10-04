@@ -282,7 +282,7 @@ def polygonize(
 
 def feature_loop(_docs):
 
-    input_zone_polygon, input_value_raster_path, prefix, sufix = args
+    input_zone_polygon, input_value_raster_path, prefix, sufix = _docs[0]['args']
 
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
