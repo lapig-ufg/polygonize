@@ -9,7 +9,7 @@ args = (
     '_COL8_atlas_sirgas.tif',
 )
 creat_feature_loop(args, 'pasture_col8_s100')
-#feature_loop_s100(args)
+feature_loop_s100(args)
 
 
 from atlas.pasture_polygonize import feature_loop
