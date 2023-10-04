@@ -11,7 +11,7 @@ from pathos.multiprocessing import ProcessingPool
 from pymongo import MongoClient
 
 from atlas.config import logger, PG_CONNECTION, MONGO
-from atlas.functions import set_status, Status
+from atlas.functions import set_status, Status, get_complete
 
 warnings.filterwarnings('ignore')
 
@@ -280,14 +280,14 @@ def polygonize(
     )
 
 
-def feature_loop(args):
+def feature_loop(_docs):
 
     input_zone_polygon, input_value_raster_path, prefix, sufix = args
 
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
 
-    fids = range(VECTOR_LAYER.GetFeatureCount())
+
 
     dataStore = create_connection()
     layerLocal = dataStore.GetLayerByName(BD_TABLE)
@@ -295,30 +295,25 @@ def feature_loop(args):
     if layerLocal is None:
         create_layer(VECTOR_LAYER)
         logger.info(f'Layer created! ^-^ ')
-    dfn = VECTOR_LAYER.GetLayerDefn()
-    field_names = [
-        dfn.GetFieldDefn(i).GetName() for i in range(dfn.GetFieldCount())
-    ]
+
+
     del SHP
     del VECTOR_LAYER
     dataStore.Destroy()
     del layerLocal
 
 
-    def parallelProcess(args):
+    def parallelProcess(_doc):
+        if get_complete(_doc, BD_TABLE):
+            return True
+
         SHP = ogr.Open(input_zone_polygon)
         VECTOR_LAYER = SHP.GetLayer()
 
         dataStore = create_connection()
         LAYER = dataStore.GetLayerByName(BD_TABLE)
 
-        input_value_raster, fid, year, field_names = args
-
-        _doc = {
-            '_id': f'{input_value_raster};{fid};{year};{field_names}',
-            'args': args,
-            'status': 'pending',
-        }
+        input_value_raster, fid, year, field_names = _doc['args']
         try:
 
             input_feature = VECTOR_LAYER.GetFeature(fid)
@@ -339,27 +334,22 @@ def feature_loop(args):
             logger.exception(
                 f"ERROR -> FID: {fid} | CD_GEOCMU: {input_feature.GetField('CD_GEOCMU')} | YEAR: {year} | msg: {e}."
             )
+            return False
         finally:
             del SHP
             del VECTOR_LAYER
             del dataStore
             del LAYER
+        return True
 
     # parallelProcess((input_value_raster, 986, year, field_names))
     num_cores = os.cpu_count() - 2
 
-    with MongoClient(MONGO) as client:
-        query = {'status': 'Pending'}
-        db = client["polygonize"]
-        collection = db[BD_TABLE]
-        data = collection.find(query)
-        with ProcessingPool(nodes=int(num_cores)) as workers:
-            result = workers.map(
-                parallelProcess,
-                [
-                    i['args']
-                    for i in data
-                ],
+
+    with ProcessingPool(nodes=int(num_cores)) as workers:
+        result = workers.map(
+            parallelProcess,
+            _docs
             )
 
     logger.info(f'Finished! ┗(＾0＾) ┓')

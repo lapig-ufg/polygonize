@@ -37,4 +37,4 @@ def creat_feature_loop(args, database):
             logger.info(f'Insert in database {database} with args {args}')
         except Exception as e:
             logger.error(f'Error to insert in database {database} with args {args} and error {e}')
-
+    return _docs

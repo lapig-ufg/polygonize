@@ -31,3 +31,15 @@ def set_status(_doc:dict, status:Status, database:str)->None:
         db = client["polygonize"]
         collection = db[database]
         collection.update_one({'_id':_doc['_id']},{'$set':_doc})
+
+def get_complete(_doc:dict, database:str)->bool:
+    with MongoClient() as client:
+        db = client["polygonize"]
+        collection = db[database]
+        r = collection.find_one({
+            '_id': _doc['_id'],
+            'status': Status.COMPLETE
+        })
+        if r:
+            return True
+        return False
