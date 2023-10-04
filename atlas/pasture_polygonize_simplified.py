@@ -263,9 +263,9 @@ def polygonize(
         end_date = datetime.now()
         timeend = end_date - timestart
         _doc['mensagem'] = f'{fid} save'
-        _doc['time'] = timeend
+        _doc['time'] = timeend.total_seconds()
         _doc['time_str'] = str(timeend)
-        _doc['end_date'] = datetime.now()
+        _doc['end_date'] = end_date
         set_status(_doc, Status.COMPLETE, BD_TABLE)
         logger.success(f'{fid} save')
     except Exception as e:
