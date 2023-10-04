@@ -1,12 +1,10 @@
-from decouple import config
+
 from pymongo import MongoClient
 from osgeo import ogr
 from glob import glob
 
-from atlas.config import logger
+from atlas.config import logger, MONGO
 from atlas.functions import get_year
-
-MONGO = config('MONGO_CONNECTION')
 
 def creat_doc_loop(args):
     input_value_raster, fid, year, field_names = args

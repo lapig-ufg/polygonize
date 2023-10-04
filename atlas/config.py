@@ -1,4 +1,8 @@
 from loguru import logger
+from decouple import config
+
+MONGO = config('MONGO_CONNECTION')
+PG_CONNECTION = config('PG_CONNECTION')
 
 logger.add(
     f'logs/logger.log',

@@ -9,8 +9,9 @@ import numpy
 from decouple import config
 from osgeo import gdal, ogr, osr
 from pathos.multiprocessing import ProcessingPool
+from pymongo import MongoClient
 
-from atlas.config import logger
+from atlas.config import logger, MONGO
 
 warnings.filterwarnings('ignore')
 
@@ -345,6 +346,13 @@ def feature_loop(args):
 
     # parallelProcess((input_value_raster, 5, year, field_names))
     num_cores = (os.cpu_count()) - 8
+
+    with MongoClient(MONGO) as client:
+        query = {'status': 'Pending'}
+        db = client["polygonize"]
+        collection = db[BD_TABLE]
+        collection.find(query)
+
 
     with ProcessingPool(nodes=int(num_cores)) as workers:
         result = workers.map(

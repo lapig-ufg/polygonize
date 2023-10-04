@@ -1,23 +1,23 @@
 import os
 import sys
-import time
+from datetime import datetime
 import unicodedata
 import warnings
-from glob import glob
+
 
 import numpy
-from decouple import config
 from osgeo import gdal, ogr, osr
 from pathos.multiprocessing import ProcessingPool
+from pymongo import MongoClient
 
-from atlas.config import logger
+from atlas.config import logger, PG_CONNECTION, MONGO
 from atlas.functions import set_status, Status
 
 warnings.filterwarnings('ignore')
 
 # Variaveis globais
 #  Database connections
-PG_CONNECTION = config('PG_CONNECTION')
+
 BD_TABLE = 'pasture_col8_s100'
 
 
@@ -83,7 +83,11 @@ def polygonize(
     year,
     _doc
 ):
-    timestart = time.time()
+    timestart = datetime.now()
+    _doc['mensagem'] = 'init polygonize'
+    _doc['start'] = timestart
+    set_status(_doc, Status.RUNNING, BD_TABLE)
+
     memory_driver = ogr.GetDriverByName('Memory')
     memory_ds = memory_driver.CreateDataSource('tempDS')
 
@@ -255,7 +259,12 @@ def polygonize(
 
     try:
         out_lyr.CreateFeature(out_feat)
+        end_date = datetime.now()
+        timeend = end_date - timestart
         _doc['mensagem'] = f'{fid} save'
+        _doc['time'] = timeend
+        _doc['time_str'] = str(timeend)
+        _doc['end_date'] = end_date
         set_status(_doc, Status.COMPLETE, BD_TABLE)
         logger.success(f'{fid} save')
     except Exception as e:
@@ -265,7 +274,7 @@ def polygonize(
             f'ERROR_CREATE_FEATURE: {fid} | feature class {out_feat:>10} | msg: {e}'
         )
 
-    timeend = time.time() - timestart
+
     logger.info(
         f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Time Execution: {timeend:.2f}"
     )
@@ -295,8 +304,6 @@ def feature_loop(args):
     dataStore.Destroy()
     del layerLocal
 
-    def get_year(s, pre, suf):
-        return int(s.replace(pre, '').replace(suf, ''))
 
     def parallelProcess(args):
         SHP = ogr.Open(input_zone_polygon)
@@ -341,17 +348,19 @@ def feature_loop(args):
     # parallelProcess((input_value_raster, 986, year, field_names))
     num_cores = os.cpu_count() - 2
 
-
-
-    with ProcessingPool(nodes=int(num_cores)) as workers:
-        result = workers.map(
-            parallelProcess,
-            [
-                (file, fid, get_year(file, prefix, sufix), field_names)
-                for fid in fids
-                for file in glob(input_value_raster_path)
-            ],
-        )
+    with MongoClient(MONGO) as client:
+        query = {'status': 'Pending'}
+        db = client["polygonize"]
+        collection = db[BD_TABLE]
+        data = collection.find(query)
+        with ProcessingPool(nodes=int(num_cores)) as workers:
+            result = workers.map(
+                parallelProcess,
+                [
+                    i['args']
+                    for i in data
+                ],
+            )
 
     logger.info(f'Finished! ┗(＾0＾) ┓')
 
