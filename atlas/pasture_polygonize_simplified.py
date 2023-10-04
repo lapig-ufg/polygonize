@@ -85,6 +85,7 @@ def polygonize(
 ):
     timestart = datetime.now()
     _doc['mensagem'] = 'init polygonize'
+    logger.info(f'init polygonize {_doc["_id"]}')
     _doc['start'] = timestart
     set_status(_doc, Status.RUNNING, BD_TABLE)
 
@@ -264,7 +265,7 @@ def polygonize(
         _doc['mensagem'] = f'{fid} save'
         _doc['time'] = timeend
         _doc['time_str'] = str(timeend)
-        _doc['end_date'] = end_date
+        _doc['end_date'] = datetime.now()
         set_status(_doc, Status.COMPLETE, BD_TABLE)
         logger.success(f'{fid} save')
     except Exception as e:
