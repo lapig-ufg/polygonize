@@ -33,7 +33,7 @@ def creat_feature_loop(args,database):
     with MongoClient(MONGO) as client:
         db = client["polygonize"]
         collection = db[database]
-        _docs = [creat_doc_loop(file, fid, get_year(file,prefix,sufix), field_names) for fid in fids for file in glob(input_value_raster_path)]
+        _docs = [creat_doc_loop((file, fid, get_year(file,prefix,sufix)), field_names) for fid in fids for file in glob(input_value_raster_path)]
         try:
             collection.insert_many(_docs)
             logger.info(f'Insert in database {database} with args {args}')
