@@ -2,7 +2,7 @@ from atlas.creat_quee import creat_feature_loop
 from atlas.pasture_polygonize_simplified import feature_loop as feature_loop_s100
 
 args = (
-    '../Shapefile/regions_v26052023.shp',
+    '../Shapefile/regions_v19102023.shp',
     '../Pastagem_Col8/pasture_br_Y*_COL8_atlas_sirgas.tif',
     '../Pastagem_Col8/pasture_br_Y',
     '_COL8_atlas_sirgas.tif',

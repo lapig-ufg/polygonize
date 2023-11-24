@@ -2,6 +2,7 @@
 from pymongo import MongoClient
 from osgeo import ogr
 from glob import glob
+import os.path 
 
 from atlas.config import logger, MONGO
 from atlas.functions import get_year
@@ -16,12 +17,22 @@ def creat_doc_loop(args):
         }
 def creat_feature_loop(args, database):
     input_zone_polygon, input_value_raster_path, prefix, sufix = args
-
+    logger.debug(args)
+    
+    if not os.path.isfile(input_zone_polygon):
+        logger.error(f'File {input_zone_polygon} not found')
+        return []
+    raster = glob(input_value_raster_path)
+    
+    if not os.path.isfile(raster[0]):
+        logger.error(f'File {raster} not found')
+        return []
+    
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
 
     fids = range(VECTOR_LAYER.GetFeatureCount())
-
+    logger.debug(f'fids: {fids}')
     dfn = VECTOR_LAYER.GetLayerDefn()
     field_names = [
         dfn.GetFieldDefn(i).GetName() for i in range(dfn.GetFieldCount())

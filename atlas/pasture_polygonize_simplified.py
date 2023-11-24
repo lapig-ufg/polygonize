@@ -366,8 +366,25 @@ def feature_loop(_docs):
             # Execute a agregação e obtenha os resultados
             resultado_agregacao = list(collection.aggregate(pipeline))
             status = {i["_id"]:i["count"] for i in resultado_agregacao}
-            print(status)
-            logger.info('{status[Status.PENDING.value]} pending | {status[Status.RUNNING.value]} running | {status[Status.COMPLETE.value]} complete | {status[Status.ERROR.value]} error'.format(status=status))
+            try:
+                N_PENDING = status[Status.PENDING.value]
+            except KeyError:
+                N_PENDING = 0
+            try:
+                N_RUNNING = status[Status.RUNNING.value]
+            except KeyError:
+                N_RUNNING = 0
+            try:
+                N_COMPLETE = status[Status.COMPLETE.value]
+            except KeyError:
+                N_COMPLETE = 0
+            try:
+                N_ERROR = status[Status.ERROR.value]
+            except KeyError:
+                N_ERROR = 0
+            
+              
+            logger.info(f'{N_PENDING} pending | {N_RUNNING} running | {N_COMPLETE} complete | {N_ERROR} error')
             
         if not _docs:
             break
