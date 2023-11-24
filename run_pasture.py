@@ -1,5 +1,5 @@
 from atlas.creat_quee import creat_feature_loop
-from atlas.pasture_polygonize_simplified import feature_loop as feature_loop_s100
+from atlas.pasture_polygonize import feature_loop
 
 args = (
     '../Shapefile/regions_v19102023.shp',
@@ -8,9 +8,9 @@ args = (
     '_COL8_atlas_sirgas.tif',
 )
 datas = creat_feature_loop(args, 'pasture_col8_s100')
-feature_loop_s100(datas)
+feature_loop(datas)
 
 
-from atlas.pasture_polygonize import feature_loop
+
 
 # feature_loop(('../Shapefile/regions_v26052023.shp','../Pastagem_Col8/pasture_br_Y*_COL8_atlas_sirgas.tif', '../Pastagem_Col8/pasture_br_Y','_COL8_atlas_sirgas.tif'))
