@@ -18,15 +18,10 @@ warnings.filterwarnings('ignore')
 #  Database connections
 BD_TABLE = 'pasture_col8'
 
-
-
 def create_connection():
     DRIVER = ogr.GetDriverByName('PostgreSQL')
     DATA_SOURCE = DRIVER.CreateDataSource(PG_CONNECTION)
     return DATA_SOURCE
-
-
-
 
 
 def create_layer(vector_layer):
