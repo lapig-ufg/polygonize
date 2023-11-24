@@ -7,7 +7,7 @@ args = (
     '../Pastagem_Col8/pasture_br_Y',
     '_COL8_atlas_sirgas.tif',
 )
-datas = creat_feature_loop(args, 'pasture_col8_s100')
+datas = creat_feature_loop(args, 'pasture_col8')
 feature_loop(datas)
 
 
