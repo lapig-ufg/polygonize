@@ -1,7 +1,6 @@
 import os
 import sys
 from datetime import datetime
-import unicodedata
 import warnings
 
 
@@ -11,7 +10,7 @@ from pathos.multiprocessing import ProcessingPool
 from pymongo import MongoClient
 
 from atlas.config import logger, PG_CONNECTION, MONGO
-from atlas.functions import set_status, Status, get_complete
+from atlas.functions import set_status, Status, get_complete, normalize_field_value
 
 warnings.filterwarnings('ignore')
 
@@ -26,14 +25,6 @@ def create_connection():
     DATA_SOURCE = DRIVER.CreateDataSource(PG_CONNECTION)
     return DATA_SOURCE
 
-
-def normalize_field_value(text):
-    text = (
-        unicodedata.normalize('NFD', text)
-        .encode('ascii', 'ignore')
-        .decode('utf-8')
-    )
-    return str(text).upper()
 
 
 def create_layer(vector_layer):
@@ -245,7 +236,6 @@ def polygonize(
     out_feat.SetField('area_ha', area / 10000)
     out_feat.SetField('year', year)
 
-    # import ipdb; ipdb.set_trace()
 
     for field_name in field_names:
         if field_name == ['BIOMA']:
@@ -366,24 +356,13 @@ def feature_loop(_docs):
             # Execute a agregação e obtenha os resultados
             resultado_agregacao = list(collection.aggregate(pipeline))
             status = {i["_id"]:i["count"] for i in resultado_agregacao}
-            try:
-                N_PENDING = status[Status.PENDING.value]
-            except KeyError:
-                N_PENDING = 0
-            try:
-                N_RUNNING = status[Status.RUNNING.value]
-            except KeyError:
-                N_RUNNING = 0
-            try:
-                N_COMPLETE = status[Status.COMPLETE.value]
-            except KeyError:
-                N_COMPLETE = 0
-            try:
-                N_ERROR = status[Status.ERROR.value]
-            except KeyError:
-                N_ERROR = 0
             
-              
+            N_PENDING = status.get(Status.PENDING.value,0)
+            N_RUNNING = status.get(Status.RUNNING.value,0)
+            N_COMPLETE = status.get(Status.COMPLETE.value,0)
+            N_ERROR = status.get(Status.ERROR.value,0)
+            
+            
             logger.info(f'{N_PENDING} pending | {N_RUNNING} running | {N_COMPLETE} complete | {N_ERROR} error')
             
         if not _docs:
