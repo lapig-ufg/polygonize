@@ -355,13 +355,14 @@ def feature_loop(_docs):
         
         chunk = int(len(_docs)/num_cores)
         list_docs = []
+        logger.info(f'chunk {chunk} | cores {num_cores}')
         for start in range(0, len(_docs), chunk):
             end = start + chunk
             if end > chunk:
                 end = chunk
             _docs_slice = _docs[start:end]
             list_docs.append(_docs_slice)
-        
+        logger.info(f'{len(list_docs)}'}
         with ProcessingPool(nodes=int(num_cores)) as workers:
             result = workers.map(
                 loop,
