@@ -358,6 +358,7 @@ def feature_loop(_docs):
         logger.info(f'chunk {chunk} | cores {num_cores}')
         for start in range(0, len(_docs), chunk):
             end = start + chunk
+            logger.info(f'start {start} end {end}')
             if end > chunk:
                 end = chunk
             _docs_slice = _docs[start:end]
