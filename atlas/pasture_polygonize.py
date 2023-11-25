@@ -6,6 +6,7 @@ import warnings
 
 import numpy
 from osgeo import gdal, ogr, osr
+from multiprocessing import Pool
 from pathos.multiprocessing import ProcessingPool
 from pymongo import MongoClient
 
@@ -364,7 +365,7 @@ def feature_loop(_docs):
             _docs_slice = _docs[start:end]
             list_docs.append(_docs_slice)
         logger.info(f'{len(list_docs)}')
-        with ProcessingPool(nodes=int(num_cores)) as workers:
+        with Pool(int(num_cores)) as workers:
             result = workers.map(
                 loop,
                 list_docs
