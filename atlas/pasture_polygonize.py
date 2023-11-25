@@ -6,7 +6,6 @@ import warnings
 
 import numpy
 from osgeo import gdal, ogr, osr
-from multiprocessing import Pool
 from pathos.multiprocessing import ProcessingPool
 from pymongo import MongoClient
 
@@ -313,12 +312,6 @@ def feature_loop(_docs):
             del dataStore
             del LAYER
         return True
-    
-    def loop(list_docs):
-        result = []
-        for _doc in list_docs:
-            result.append(parallelProcess(_doc))
-        return all(result)
 
     # parallelProcess((input_value_raster, 986, year, field_names))
     num_cores = os.cpu_count() - 2
@@ -328,7 +321,7 @@ def feature_loop(_docs):
         with MongoClient(MONGO) as client:
             db = client['polygonize']
             collection = db[BD_TABLE]
-            _docs = list(collection.find({'status': Status.PENDING.value}).limit(100_000))
+            _docs = list(collection.find({'status': Status.PENDING.value}).limit(10000))
             pipeline = [
                 {
                     '$group': {
@@ -354,21 +347,10 @@ def feature_loop(_docs):
         if not _docs:
             break
         
-        chunk = int(len(_docs)/num_cores)
-        list_docs = []
-        logger.info(f'chunk {chunk} | cores {num_cores}')
-        for start in range(0, len(_docs), chunk):
-            end = start + chunk
-            logger.info(f'start {start} end {end}')
-            if end > chunk:
-                end = chunk
-            _docs_slice = _docs[start:end]
-            list_docs.append(_docs_slice)
-        logger.info(f'{len(list_docs)}')
-        with Pool(int(num_cores)) as workers:
+        with ProcessingPool(nodes=int(num_cores)) as workers:
             result = workers.map(
-                loop,
-                list_docs
+                parallelProcess,
+                _docs
                 )
 
     logger.info(f'Finished! ┗(＾0＾) ┓')
