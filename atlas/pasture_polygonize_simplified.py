@@ -348,7 +348,7 @@ def feature_loop(_docs):
         with MongoClient(MONGO) as client:
             db = client['polygonize']
             collection = db[BD_TABLE]
-            _docs = list(collection.find({'status': Status.PENDING.value}).limit(100_000))
+            _docs = list(collection.find({'status': Status.PENDING.value}).limit(1_000_000))
             pipeline = [
                 {
                     '$group': {

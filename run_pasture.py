@@ -1,5 +1,5 @@
 from atlas.creat_quee import creat_feature_loop
-from atlas.pasture_polygonize import feature_loop
+from atlas.pasture_polygonize_simplified import feature_loop
 
 args = (
     '../Shapefile/regions_v05_12_2023.shp',
