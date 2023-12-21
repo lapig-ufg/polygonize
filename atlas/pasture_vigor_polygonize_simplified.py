@@ -1,23 +1,21 @@
 import os
 import sys
-import time
+from datetime import datetime
 import warnings
 from glob import glob
 
 import numpy
-from decouple import config
 from osgeo import gdal, ogr, osr
 from pathos.multiprocessing import ProcessingPool
+from pymongo import MongoClient
 
-from atlas.config import logger
-from atlas.functions import normalize_field_value
+from atlas.config import logger, PG_CONNECTION, MONGO
+from atlas.functions import set_status, Status, get_complete, normalize_field_value
 
 warnings.filterwarnings('ignore')
 
-# Variaveis globais
-#  Database connections
-PG_CONNECTION = config('PG_CONNECTION')
-BD_TABLE = 'pasture_quality_col8_S100'
+
+BD_TABLE = 'pasture_vigor_col8_S100'
 
 
 def create_connection():
@@ -71,8 +69,15 @@ def polygonize(
     out_lyr,
     fid,
     year,
+    _doc
 ):
-    timestart = time.time()
+    
+    timestart = datetime.now()
+    _doc['mensagem'] = 'init polygonize'
+    logger.info(f'init polygonize {_doc["_id"]}')
+    _doc['start'] = timestart
+    set_status(_doc, Status.RUNNING, BD_TABLE)
+    
     memory_driver = ogr.GetDriverByName('Memory')
     memory_ds = memory_driver.CreateDataSource('tempDS')
 
@@ -121,6 +126,8 @@ def polygonize(
             pointsY.append(lat)
 
     else:
+        _doc['mensagem'] = 'Geometry needs to be either Polygon or Multipolygon'
+        set_status(_doc, Status.ERROR, BD_TABLE)
         logger.error(
             f'ERROR: Geometry needs to be either Polygon or Multipolygon'
         )
@@ -154,12 +161,17 @@ def polygonize(
     input_raster_band = raster.GetRasterBand(1)
     temp_raster_band = temp_raster_layer.GetRasterBand(1)
 
-    input_raster_data = input_raster_band.ReadAsArray(
-        xoff, yoff, xcount, ycount
-    ).astype(numpy.byte)
-    temp_raster_data = temp_raster_band.ReadAsArray(
-        0, 0, xcount, ycount
-    ).astype(numpy.byte)
+    try:
+        input_raster_data = input_raster_band.ReadAsArray(
+            xoff, yoff, xcount, ycount
+        ).astype(numpy.byte)
+        temp_raster_data = temp_raster_band.ReadAsArray(
+            0, 0, xcount, ycount
+        ).astype(numpy.byte)
+    except Exception as e:
+        _doc['mensagem'] = f'ERROR_READ_RASTER: {fid} | msg: {e}'
+        set_status(_doc, Status.ERROR, BD_TABLE)
+        logger.error(f'ERROR_READ_RASTER: {fid} | msg: {e}')
 
     input_raster_data[input_raster_data == 255] = 0
     temp_raster_data = input_raster_data * temp_raster_data
@@ -268,36 +280,33 @@ def polygonize(
 
         try:
             out_lyr.CreateFeature(out_feat)
+            end_date = datetime.now()
+            timeend = end_date - timestart
+            _doc['mensagem'] = f'{fid} save'
+            _doc['time'] = timeend.total_seconds()
+            _doc['time_str'] = str(timeend)
+            _doc['end_date'] = end_date
+            set_status(_doc, Status.COMPLETE, BD_TABLE)
+            logger.success(f'{fid} save')
         except Exception as e:
+            _doc['mensagem'] = f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10}  {out_feat}| msg: {e}'
+            set_status(_doc, Status.ERROR, BD_TABLE)
             logger.error(
                 f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10} | msg: {e}'
             )
 
-    timeend = time.time() - timestart
+    
     logger.info(
         f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Classes: {listClass} | Time Execution: {timeend:.2f}"
     )
 
 
-def feature_loop(args):
+def feature_loop(_docs):
 
-    input_zone_polygon, input_value_raster_path = args
+    input_zone_polygon, input_value_raster_path, prefix, sufix, field_names = _docs[0]['args']
 
-    logger.add(
-        f'logs/{BD_TABLE}.log',
-        format='[{time} | {level:<6}] {module}.{function}:{line} {message}',
-        rotation='500 MB',
-    )
-    logger.add(
-        f'logs/{BD_TABLE}_error.log',
-        format='[{time} | {level:<6}] {module}.{function}:{line} {message}',
-        level='WARNING',
-        rotation='500 MB',
-    )
     SHP = ogr.Open(input_zone_polygon)
     VECTOR_LAYER = SHP.GetLayer()
-
-    fids = range(VECTOR_LAYER.GetFeatureCount())
 
     dataStore = create_connection()
     layerLocal = dataStore.GetLayerByName(BD_TABLE)
@@ -305,42 +314,30 @@ def feature_loop(args):
     if layerLocal is None:
         create_layer(VECTOR_LAYER)
         logger.info(f'Layer created! ^-^ ')
-    dfn = VECTOR_LAYER.GetLayerDefn()
-    field_names = [
-        dfn.GetFieldDefn(i).GetName() for i in range(dfn.GetFieldCount())
-    ]
+        
+        
     del SHP
     del VECTOR_LAYER
     dataStore.Destroy()
     del layerLocal
 
-    def parallelProcess(args):
+    def parallelProcess(_doc):
+        if get_complete(_doc, BD_TABLE):
+            return True
+        input_zone_polygon, input_value_raster, fid, year, field_names = _doc['args']
+        
         SHP = ogr.Open(input_zone_polygon)
         VECTOR_LAYER = SHP.GetLayer()
 
         dataStore = create_connection()
         LAYER = dataStore.GetLayerByName(BD_TABLE)
 
-        input_value_raster, fid, year, field_names = args
+        
 
-        _doc = {
-            '_id': f'{input_value_raster};{fid};{year};{field_names}',
-            'args': args,
-            'status': 'Pending',
-        }
-
-        logger.debug(
-            f"""
-                input_value_raster: {input_value_raster}, 
-                fid: {fid} 
-                year: {year}
-                field_names: {field_names}"""
-        )
+    
         try:
-            # logger.info(f"raster: {input_value_raster} | fid: {fid} | year: {year} | field_names: {field_names}")
             input_feature = VECTOR_LAYER.GetFeature(fid)
             input_feature_srs = VECTOR_LAYER.GetSpatialRef()
-            # logger.info(f"Runing Parallel: {fid} | CD_GEOCMU: {input_feature.GetField('CD_GEOCMU'):>10} | YEAR: {year}")
             polygonize(
                 input_feature,
                 input_feature_srs,
@@ -352,27 +349,57 @@ def feature_loop(args):
                 _doc,
             )
         except Exception as e:
+            _doc['mensagem'] = f'ERROR: FID: {fid} | CD_GEOCMU: {input_feature.GetField("CD_GEOCMU")} | YEAR: {year} | msg: {e}.'
+            set_status(_doc, Status.ERROR, BD_TABLE)
             logger.exception(
                 f"ERROR -> FID: {fid} | CD_GEOCMU: {input_feature.GetField('CD_GEOCMU')} | YEAR: {year} | msg: {e}."
             )
+            return False
         finally:
             del SHP
             del VECTOR_LAYER
             del dataStore
             del LAYER
-
+        return True
     # # parallelProcess((input_value_raster, 5, year, field_names))
-    num_cores = int((os.cpu_count() * 2) - 5)
-
-    with ProcessingPool(nodes=int(num_cores)) as workers:
-        result = workers.map(
-            parallelProcess,
-            [
-                (file, fid, get_year(file), field_names)
-                for fid in fids
-                for file in glob(input_value_raster_path)
-            ],
-        )
+    num_cores = os.cpu_count() -2
+    logger.info('init parallel process')
+    
+    while True:
+        with MongoClient(MONGO) as client:
+            db = client['polygonize']
+            collection = db[BD_TABLE]
+            _docs = list(collection.find({'status': Status.PENDING.value}).limit(250_000))
+            pipeline = [
+                {
+                    '$group': {
+                        '_id': '$status',
+                        'count': {
+                            '$sum': 1
+                        }
+                    }
+                }
+            ]
+            # Execute a agregação e obtenha os resultados
+            resultado_agregacao = list(collection.aggregate(pipeline))
+            status = {i["_id"]:i["count"] for i in resultado_agregacao}
+            
+            N_PENDING = status.get(Status.PENDING.value,0)
+            N_RUNNING = status.get(Status.RUNNING.value,0)
+            N_COMPLETE = status.get(Status.COMPLETE.value,0)
+            N_ERROR = status.get(Status.ERROR.value,0)
+            
+            
+            logger.info(f'{N_PENDING} pending | {N_RUNNING} running | {N_COMPLETE} complete | {N_ERROR} error')
+            
+        if not _docs:
+            break
+        
+        with ProcessingPool(nodes=int(num_cores)) as workers:
+            result = workers.map(
+                parallelProcess,
+                _docs
+                )
 
     logger.info(f'Finished! ┗(＾0＾) ┓')
 
