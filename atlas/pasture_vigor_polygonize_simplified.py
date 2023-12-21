@@ -277,11 +277,10 @@ def polygonize(
                 out_feat.SetField(
                     field_name, str(input_feature.GetField(field_name))
                 )
-
+        end_date = datetime.now()
+        timeend = end_date - timestart
         try:
             out_lyr.CreateFeature(out_feat)
-            end_date = datetime.now()
-            timeend = end_date - timestart
             _doc['mensagem'] = f'{fid} save'
             _doc['time'] = timeend.total_seconds()
             _doc['time_str'] = str(timeend)
@@ -291,7 +290,7 @@ def polygonize(
         except Exception as e:
             _doc['mensagem'] = f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10}  {out_feat}| msg: {e}'
             set_status(_doc, Status.ERROR, BD_TABLE)
-            logger.error(
+            logger.exception(
                 f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10} | msg: {e}'
             )
             return False
