@@ -294,11 +294,10 @@ def polygonize(
                 f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10} | msg: {e}'
             )
             return False
-
     
-    logger.info(
-        f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Classes: {listClass} | Time Execution: {timeend}"
-    )
+        logger.info(
+            f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Classes: {listClass} | Time Execution: {timeend}"
+        )
 
 
 def feature_loop(_docs):
