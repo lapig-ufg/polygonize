@@ -294,6 +294,7 @@ def polygonize(
             logger.error(
                 f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10} | msg: {e}'
             )
+            return False
 
     
     logger.info(
