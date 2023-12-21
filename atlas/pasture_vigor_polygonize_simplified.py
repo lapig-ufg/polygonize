@@ -361,7 +361,7 @@ def feature_loop(_docs):
             del LAYER
         return True
     # # parallelProcess((input_value_raster, 5, year, field_names))
-    num_cores = os.cpu_count() -2
+    num_cores = (os.cpu_count()*2) -10
     logger.info('init parallel process')
     
     while True:
