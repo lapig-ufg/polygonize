@@ -297,7 +297,7 @@ def polygonize(
 
     
     logger.info(
-        f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Classes: {listClass} | Time Execution: {timeend:.2f}"
+        f"Inserted: {fid} | {input_feature.GetField('CD_GEOCMU'):>10} | Year: {year} | Classes: {listClass} | Time Execution: {timeend}"
     )
 
 
