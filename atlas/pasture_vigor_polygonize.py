@@ -266,7 +266,8 @@ def polygonize(
                 out_feat.SetField(
                     field_name, str(input_feature.GetField(field_name))
                 )
-
+        end_date = datetime.now()
+        timeend = end_date - timestart
         try:
             logger.info('Pre banco')
             out_lyr.CreateFeature(out_feat)
