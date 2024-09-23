@@ -1,6 +1,8 @@
-GDAL==3.4.1
-loguru==0.6.0
-numpy==1.21.4
-pathos==0.2.8
+GDAL==3.9.2
+loguru==0.7.2
+numpy==2.1.1
+pathos==0.3.2
 python-decouple==3.6
+pymongo==4.5.0
+decouple==3.6
 pymongo==4.5.0

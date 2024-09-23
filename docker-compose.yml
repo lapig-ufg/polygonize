@@ -1,0 +1,46 @@
+services:
+  poly:
+    build: .
+    environment: 
+      - "PG_CONNECTION='PG: host=polypostgis port=5432 dbname=postgresql user=postgresql password=PoLyPostGRES'"
+      - "MONGO_CONNECTION='mongodb://mongopoly:27017'"
+    stdin_open: true  # Manter o stdin aberto
+    tty: true         # Alocar um terminal
+    volumes:
+      - ./data:/data
+    networks:
+      - poly_network
+  polypostgis:
+    hostname: polypostgis
+    container_name: polypostgis
+    image: postgis/postgis:latest 
+    shm_size: 8g
+    environment:
+        - "POSTGRES_PASSWORD=PoLyPostGRES"
+        - "POSTGRES_HOST_AUTH_METHOD=password"
+    restart: on-failure 
+    volumes:
+        - postgis-data:/var/lib/postgresql/data
+    healthcheck:
+        test: curl --fail -s http://127.0.0.1:5432/ || exit 1
+        interval: 1m30s
+        timeout: 10s
+        retries: 3
+    networks:
+      - poly_network
+  mongopoly:
+    image: mongo:6-jammy
+    hostname: mongopoly
+    volumes:
+      - dbdata6:/data/db
+    networks:
+      - poly_network
+
+networks:
+  poly_network:
+    external: true
+    driver: bridge
+
+volumes:
+  postgis-data:
+  dbdata6:
