@@ -16,7 +16,7 @@ warnings.filterwarnings('ignore')
 
 # Variaveis globais
 #  Database connections
-BD_TABLE = 'pasture_col8'
+BD_TABLE = 'pasture_col9'
 
 def create_connection():
     DRIVER = ogr.GetDriverByName('PostgreSQL')

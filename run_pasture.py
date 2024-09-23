@@ -3,7 +3,7 @@ from atlas.pasture_polygonize import feature_loop
 
 args = (
     '/data/shape/regiao.shp',
-    '/data/pasture_col9/pasture_br_Y*_COL8_atlas_sirgas.tif',
+    '/data/pasture_col9/pasture_br_Y*_COL9_atlas.tif',
     '/data/pasture_col9/pasture_br_Y',
     '_COL9_atlas.tif',
 )

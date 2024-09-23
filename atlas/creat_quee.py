@@ -23,7 +23,7 @@ def creat_feature_loop(args, database):
         logger.error(f'File {input_zone_polygon} not found')
         return []
     raster = glob(input_value_raster_path)
-    
+    logger.info(f'{input_value_raster_path}, {raster}')
     if not os.path.isfile(raster[0]):
         logger.error(f'File {raster} not found')
         return []
@@ -38,7 +38,7 @@ def creat_feature_loop(args, database):
         dfn.GetFieldDefn(i).GetName() for i in range(dfn.GetFieldCount())
     ]
 
-
+    logger.debug(MONGO)
     with MongoClient(MONGO) as client:
         db = client["polygonize"]
         collection = db[database]

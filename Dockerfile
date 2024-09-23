@@ -6,7 +6,12 @@ WORKDIR /app
 
 COPY requirements.txt /tmp/requirements.txt
 
-RUN apt-get update && apt-get install -y coreutils git python3-venv && \
+RUN apt-get update && apt-get install -y \
+    coreutils \
+    git \
+    libpq-dev \
+    screen \
+    python3-venv && \
     python3 -m venv /opt/venv && /opt/venv/bin/pip install --no-cache-dir -r /tmp/requirements.txt && \
     cd /app && git clone https://github.com/lapig-ufg/polygonize.git && \
     echo "Logger Sys" > /logs/logger.log
