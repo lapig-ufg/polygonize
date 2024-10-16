@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime
 import warnings
-
+from dotenv import load_dotenv
 
 import numpy
 from osgeo import gdal, ogr, osr
@@ -13,11 +13,11 @@ from atlas.config import logger, PG_CONNECTION, MONGO
 from atlas.functions import set_status, Status, get_complete, normalize_field_value
 
 warnings.filterwarnings('ignore')
-
+load_dotenv() 
 # Variaveis globais
 #  Database connections
 
-BD_TABLE = 'pasture_col8_s100'
+BD_TABLE = f"{os.getenv('PASTURE','pasture_col9')}_s100"
 
 
 def create_connection():

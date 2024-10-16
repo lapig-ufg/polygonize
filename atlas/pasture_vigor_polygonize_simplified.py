@@ -3,7 +3,7 @@ import sys
 from datetime import datetime
 import warnings
 from glob import glob
-
+from dotenv import load_dotenv
 import numpy
 from osgeo import gdal, ogr, osr
 from pathos.multiprocessing import ProcessingPool
@@ -13,9 +13,9 @@ from atlas.config import logger, PG_CONNECTION, MONGO
 from atlas.functions import set_status, Status, get_complete, normalize_field_value
 
 warnings.filterwarnings('ignore')
+load_dotenv() 
 
-
-BD_TABLE = 'pasture_vigor_col8_S100'
+BD_TABLE = f"{os.getenv('VIGOR','pasture_vigor_col9')}_s100"
 
 
 def create_connection():
@@ -286,7 +286,7 @@ def polygonize(
             _doc['time_str'] = str(timeend)
             _doc['end_date'] = end_date
             set_status(_doc, Status.COMPLETE, BD_TABLE)
-            logger.success(f'{fid} save')
+            logger.success(f'{fid} save ')
         except Exception as e:
             _doc['mensagem'] = f'ERROR_CREATE_FEATURE: {fid} | feature class {featClass:>10}  {out_feat}| msg: {e}'
             set_status(_doc, Status.ERROR, BD_TABLE)

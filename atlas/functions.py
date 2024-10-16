@@ -31,6 +31,7 @@ def set_status(_doc:dict, status:Status, database:str)->None:
         db = client["polygonize"]
         collection = db[database]
         collection.update_one({'_id':_doc['_id']},{'$set':_doc})
+        logger.info(f"save in db")
 
 def get_complete(_doc:dict, database:str)->bool:
     with MongoClient(MONGO) as client:

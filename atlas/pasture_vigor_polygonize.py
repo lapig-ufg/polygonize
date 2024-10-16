@@ -8,13 +8,14 @@ import numpy
 from osgeo import gdal, ogr, osr
 from pathos.multiprocessing import ProcessingPool
 from pymongo import MongoClient
-
+from dotenv import load_dotenv
 from atlas.config import logger, PG_CONNECTION, MONGO
 from atlas.functions import set_status, Status, get_complete, normalize_field_value
 
 warnings.filterwarnings('ignore')
+load_dotenv() 
 
-BD_TABLE = 'pasture_vigor_col8'
+BD_TABLE = f"{os.getenv('VIGOR','pasture_vigor_col9')}"
 
 
 def create_connection():

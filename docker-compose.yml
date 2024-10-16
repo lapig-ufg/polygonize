@@ -4,6 +4,15 @@ services:
     environment: 
       - "PG_CONNECTION=PG: host=polypostgis port=5432 dbname=postgres user=postgres password=PoLyPostGRES"
       - "MONGO_CONNECTION=mongodb://mongopoly:27017"
+      - "REGIAO=/data/shape/regions_v05_12_2023.shp"
+      - "PASTURE=pasture_col9"
+      - "VIGOR=pasture_vigor_col9"
+      - "PASTURE_FILES=/data/pasture_col9/pasture_br_Y*_COL9_atlas.tif"
+      - "PASTURE_PREFIX=/data/pasture_col9/pasture_br_Y"
+      - "PASTURE_SUFIX=_COL9_atlas.tif"
+      - "VIGOR_FILES=/data/pasture_vigor_col9/cvp_pasture_br_LAPIG_Y*_ATLAS.tif"
+      - "VIGOR_PREFIX=/data/pasture_vigor_col9/cvp_pasture_br_LAPIG_Y"
+      - "VIGOR_SUFIX=_ATLAS.tif"
     stdin_open: true  # Manter o stdin aberto
     tty: true         # Alocar um terminal
     volumes:
