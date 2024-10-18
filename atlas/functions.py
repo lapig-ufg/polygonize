@@ -2,7 +2,7 @@ import unicodedata
 from enum import Enum
 from pymongo import MongoClient
 from decouple import config
-
+from atlas.config import logger
 
 MONGO = config('MONGO_CONNECTION')
 class Status(Enum):

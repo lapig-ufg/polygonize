@@ -17,6 +17,8 @@ services:
     tty: true         # Alocar um terminal
     volumes:
       - ./data:/data
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
     networks:
       - poly_network
   polypostgis:
