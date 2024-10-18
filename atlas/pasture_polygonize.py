@@ -318,7 +318,7 @@ def feature_loop(_docs):
         return True
 
     # parallelProcess((input_value_raster, 986, year, field_names))
-    num_cores = os.cpu_count() - 2
+    num_cores = os.cpu_count() /2
 
     logger.info('init parallel process')
     while True:
